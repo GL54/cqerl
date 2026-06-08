@@ -192,6 +192,7 @@ get_client_safe(_T, 0) ->
     {error, no_client};
 
 get_client_safe(T, Retries) ->
+    io:format("client retryyyyy ~p",[Retries]),
      N = erlang:phash2(self(), ets:info(T, size)),
 
     case ets:lookup(T, N+1) of
