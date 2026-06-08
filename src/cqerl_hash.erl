@@ -178,11 +178,33 @@ get_client(Node, Opts) ->
     Key = cqerl_client:make_key(Node, Opts),
     case get_table(Key) of
         {ok, T} ->
-            N = erlang:phash2(self(), ets:info(T, size)),
-            [{_, Pid}] = ets:lookup(T, N+1),
-            {ok, {Pid, make_ref()}};
+             case get_client_safe(T, 4) of
+                {ok, Pid} ->
+                    {ok, {Pid, make_ref()}};
+                Error ->
+                    Error
+            end;
         _ ->
             start_clients(Node, Opts)
+    end.
+
+get_client_safe(_T, 0) ->
+    {error, no_client};
+
+get_client_safe(T, Retries) ->
+     N = erlang:phash2(self(), ets:info(T, size)),
+
+    case ets:lookup(T, N+1) of
+        [{_, Pid}] ->
+            case is_process_alive(Pid) of
+                true ->
+                    {ok, Pid};
+                false ->
+                    get_client_safe(T,Retries - 1)
+            end;
+
+        [] ->
+            get_client_safe(T,Retries - 1)
     end.
 
 start_clients(Node, Opts) ->
